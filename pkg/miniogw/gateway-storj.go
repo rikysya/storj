@@ -16,8 +16,9 @@ import (
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/objects"
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storage/streams"
 	mpb "storj.io/storj/protos/objects"
 )
 
@@ -41,13 +42,16 @@ func storjGatewayMain(ctx *cli.Context) {
 	minio.StartGateway(ctx, s)
 }
 
-func mockObjectStore() objects.ObjectStore {
-	return &objects.Objects{}
+func mockObjectStore() objects.ObjStore {
+	//	return &objects.Objects{}
+	//streamStore := streams.Streams{}
+	//return &objects.ObjStore{s: streams.New}
+	return objects.NewStore(&streams.StreamStore{})
 }
 
 // Storj is the implementation of a minio cmd.Gateway
 type Storj struct {
-	os objects.ObjectStore
+	os objects.ObjStore
 }
 
 // Name implements cmd.Gateway
@@ -79,7 +83,7 @@ func (s *storjObjects) DeleteBucket(ctx context.Context, bucket string) (err err
 func (s *storjObjects) DeleteObject(ctx context.Context, bucket, object string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	return s.storj.os.DeleteObject(ctx, objpath)
+	return s.storj.os.Delete(ctx, objpath)
 }
 
 func (s *storjObjects) GetBucketInfo(ctx context.Context, bucket string) (
@@ -92,7 +96,7 @@ func (s *storjObjects) GetObject(ctx context.Context, bucket, object string,
 	startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	objpath := paths.New(bucket, object)
-	rr, _, err := s.storj.os.GetObject(ctx, objpath)
+	rr, _, err := s.storj.os.Get(ctx, objpath)
 	if err != nil {
 		return err
 	}
@@ -110,7 +114,7 @@ func (s *storjObjects) GetObjectInfo(ctx context.Context, bucket,
 	object string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	objPath := paths.New(bucket, object)
-	rr, m, err := s.storj.os.GetObject(ctx, objPath)
+	rr, m, err := s.storj.os.Get(ctx, objPath)
 	if err != nil {
 		return objInfo, err
 	}
@@ -168,12 +172,12 @@ func (s *storjObjects) PutObject(ctx context.Context, bucket, object string,
 	objPath := paths.New(bucket, object)
 	// setting zero value means the object never expires
 	expTime := time.Time{}
-	err = s.storj.os.PutObject(ctx, objPath, data, metainfo, expTime)
+	m, err := s.storj.os.Put(ctx, objPath, data, metainfo, expTime)
 	return minio.ObjectInfo{
 		Name:   object,
 		Bucket: bucket,
 		// TODO create a followup ticket in JIRA to fix ModTime
-		ModTime: time.Now(),
+		ModTime: m.Modified,
 		Size:    data.Size(),
 		ETag:    minio.GenETag(),
 	}, err
