@@ -144,7 +144,15 @@ func (s *storjObjects) ListBuckets(ctx context.Context) (
 func (s *storjObjects) ListObjects(ctx context.Context, bucket, prefix, marker,
 	delimiter string, maxKeys int) (result minio.ListObjectsInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	//TODO: Fix parameters
+	_, _, err = s.storj.os.List(ctx, paths.New(prefix, ""), paths.New(marker, ""), paths.New(delimiter, ""), true, int(100), uint64(0))
+	if err != nil {
+		return result, err
+	}
+	// TODO: Fill the result from the return of the List()
 	result = minio.ListObjectsInfo{}
+
 	err = nil
 	return result, err
 }
