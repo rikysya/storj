@@ -939,12 +939,6 @@ read all (
     where coinpayments_transaction.user_id = ?
     orderby desc coinpayments_transaction.created_at
 )
-read limitoffset (
-    select coinpayments_transaction
-    where coinpayments_transaction.created_at <= ?
-    where coinpayments_transaction.status = ?
-    orderby desc coinpayments_transaction.created_at
-)
 
 model stripecoinpayments_apply_balance_intent (
     key tx_id

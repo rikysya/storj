@@ -595,6 +595,27 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Migrate transactions adding new status completed",
+				Version:     77,
+				Action: migrate.SQL{
+					// delete all pending apply balance intents
+					`DELETE FROM stripecoinpayments_apply_balance_intents WHERE state = 0`,
+					// create apply balance intents for all misinterpreted transaction
+					`INSERT INTO stripecoinpayments_apply_balance_intents 
+						(SELECT id, 0, now() FROM coinpayments_transactions WHERE status = 100)`,
+					// update all received transactions with applied balance intent to be completed
+					`UPDATE coinpayments_transactions 
+						SET status = 100
+						FROM coinpayments_transactions as txs
+						INNER JOIN stripecoinpayments_apply_balance_intents as ints
+						ON txs.id = ints.tx_id
+						WHERE txs.status = 1
+						AND ints.state = 1
+					`,
+				},
+			},
 		},
 	}
 }
