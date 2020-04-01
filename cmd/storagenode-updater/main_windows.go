@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 // Implements support for running the storagenode-updater as a Windows Service.
@@ -7,14 +7,11 @@
 //
 // sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
-// +build windows,!unittest
+// +build windows
 
 package main
 
 import (
-	"os"
-	"time"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
@@ -22,33 +19,21 @@ import (
 	"storj.io/private/process"
 )
 
-func init() {
-	// Check if session is interactive
-	interactive, err := svc.IsAnInteractiveSession()
+func main() {
+	isInteractive, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		zap.S().Fatalf("Failed to determine if session is interactive: %v", err)
 	}
 
-	if interactive {
+	if isInteractive {
+		process.Exec(rootCmd)
 		return
 	}
 
-	// Check if the 'run' command is invoked
-	if len(os.Args) < 2 {
-		return
-	}
-
-	if os.Args[1] != "run" {
-		return
-	}
-
-	// Initialize the Windows Service handler
 	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
 		zap.S().Fatalf("Service failed: %v", err)
 	}
-	// avoid starting main() when service was stopped
-	os.Exit(0)
 }
 
 type service struct{}
@@ -70,10 +55,6 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 		switch c.Cmd {
 		case svc.Interrogate:
 			zap.S().Info("Interrogate request received.")
-			changes <- c.CurrentStatus
-			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-			time.Sleep(100 * time.Millisecond)
-			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
 			zap.S().Info("Stop/Shutdown request received.")
 			changes <- svc.Status{State: svc.StopPending}
@@ -87,5 +68,6 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 			zap.S().Infof("Unexpected control request: %d\n", c)
 		}
 	}
+
 	return
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main_test
@@ -115,6 +115,16 @@ func TestAutoUpdater(t *testing.T) {
 	}
 	if !assert.NoError(t, err) {
 		t.FailNow()
+	}
+
+	d, err := os.Open(ctx.File("fake"))
+	require.NoError(t, err)
+
+	infos, err := d.Readdir(10)
+	require.NoError(t, err)
+
+	for _, info := range infos {
+		t.Log(info.Name())
 	}
 
 	oldStoragenode := ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")
